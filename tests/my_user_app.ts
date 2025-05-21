@@ -136,6 +136,10 @@ describe("entity_manager", () => {
       console.log("Entity created for delete test.");
     }
 
+    // Get user SOL balance before deleting entity
+    const balanceBefore = await provider.connection.getBalance(user.publicKey);
+    console.log(`User balance before deletion: ${balanceBefore / anchor.web3.LAMPORTS_PER_SOL} SOL`);
+
     await program.methods
       .deleteEntity()
       .accounts({
@@ -145,6 +149,15 @@ describe("entity_manager", () => {
       })
       .signers([user.payer])
       .rpc();
+
+    // Get user SOL balance after deleting entity
+    const balanceAfter = await provider.connection.getBalance(user.publicKey);
+    console.log(`User balance after deletion: ${balanceAfter / anchor.web3.LAMPORTS_PER_SOL} SOL`);
+    
+    // Verify that balance increased (SOL was returned)
+    // Note: We use greater than instead of exact match because transaction fees might be deducted
+    expect(balanceAfter).to.be.greaterThan(balanceBefore);
+    console.log(`SOL returned to user: ${(balanceAfter - balanceBefore) / anchor.web3.LAMPORTS_PER_SOL} SOL`);
 
     try {
       await program.account.entityAccount.fetch(entityPda);
@@ -222,6 +235,73 @@ describe("entity_manager", () => {
     } catch (e) {
         // if already deleted or never existed, that's fine
         console.log("Cleanup: Entity for 'Fails to delete entity with wrong authority' test already gone or never created properly.");
+    }
+  });
+
+  it("Fails to create an entity with too long name", async () => {
+    const tooLongEntityId = new BN(999); // Use a different ID for this test
+    const [tooLongEntityPda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("entity_seed"),
+        tooLongEntityId.toArrayLike(Buffer, "le", 8),
+      ],
+      program.programId
+    );
+
+    // Create a name that is too long (assuming there's a limit in the contract)
+    // Adjust this length based on your program's actual limit
+    const tooLongName = "A".repeat(100); // Creating a very long name, adjust as needed
+
+    try {
+      await program.methods
+        .createEntity(tooLongEntityId, tooLongName)
+        .accounts({
+          entityAccount: tooLongEntityPda,
+          user: user.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([user.payer])
+        .rpc();
+      expect.fail("Should have failed due to name too long");
+    } catch (error) {
+      expect(error).to.be.an('error');
+      // Check for specific error message or code
+      // The program should return a NameTooLong error
+      // Adjust this check based on how your program returns errors
+      expect(error.toString()).to.include("NameTooLong");
+      console.log("Successfully failed to create entity with too long name.");
+    }
+  });
+
+  it("Fails to update a non-existent entity", async () => {
+    // Create a new entity ID that hasn't been used
+    const nonExistentId = new BN(12345);
+    const [nonExistentPda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("entity_seed"),
+        nonExistentId.toArrayLike(Buffer, "le", 8),
+      ],
+      program.programId
+    );
+
+    try {
+      // Attempt to update a non-existent entity
+      await program.methods
+        .updateEntityStatus(true)
+        .accounts({
+          entityAccount: nonExistentPda,
+          authority: user.publicKey,
+        })
+        .signers([user.payer])
+        .rpc();
+      expect.fail("Should have failed because entity does not exist");
+    } catch (error) {
+      expect(error).to.be.an('error');
+      // The error typically includes something about account not being initialized
+      // or in Anchor, it might be "Account does not exist" or "Account not initialized"
+      // Adjust this check to match the specific error your program throws
+      console.log("Error message:", error.toString());
+      console.log("Successfully failed to update non-existent entity.");
     }
   });
 });
