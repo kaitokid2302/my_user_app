@@ -3,36 +3,36 @@ use anchor_lang::prelude::*;
 declare_id!("EJfiMorcTnMgyHvxpBe8EaBc7YG5p79xy4vLe2fPqV3B");
 
 #[program]
-pub mod entity_manager {
+pub mod task_manager {
     use super::*;
 
-    pub fn create_entity(ctx: Context<CreateEntity>, id: u64, name: String) -> Result<()> {
+    pub fn create_task(ctx: Context<CreateTask>, id: u64, name: String) -> Result<()> {
         if name.chars().count() > MAX_NAME_LENGTH {
             return err!(ErrorCode::NameTooLong);
         }
-        let entity = &mut ctx.accounts.entity_account;
-        entity.id = id;
-        entity.name = name;
-        entity.authority = *ctx.accounts.user.key;
-        entity.active = true;
-        msg!("Entity '{}' created with ID: {}", entity.name, entity.id);
+        let task = &mut ctx.accounts.task_account;
+        task.id = id;
+        task.name = name;
+        task.authority = *ctx.accounts.user.key;
+        task.active = true;
+        msg!("Task '{}' created with ID: {}", task.name, task.id);
         Ok(())
     }
 
-    pub fn update_entity_status(ctx: Context<UpdateEntityStatus>, new_status: bool) -> Result<()> {
-        ctx.accounts.entity_account.active = new_status;
-        msg!("Entity ID {} status updated to: {}", ctx.accounts.entity_account.id, new_status);
+    pub fn update_task_status(ctx: Context<UpdateTaskStatus>, new_status: bool) -> Result<()> {
+        ctx.accounts.task_account.active = new_status;
+        msg!("Task ID {} status updated to: {}", ctx.accounts.task_account.id, new_status);
         Ok(())
     }
 
-    pub fn delete_entity(ctx: Context<DeleteEntity>) -> Result<()> {
-        msg!("Entity ID {} deleted by {}", ctx.accounts.entity_account.id, ctx.accounts.authority_signer.key());
+    pub fn delete_task(ctx: Context<DeleteTask>) -> Result<()> {
+        msg!("Task ID {} deleted by {}", ctx.accounts.task_account.id, ctx.accounts.authority_signer.key());
         Ok(())
     }
 }
 
 #[account]
-pub struct EntityAccount {
+pub struct TaskAccount {
     pub id: u64,
     pub name: String,
     pub authority: Pubkey,
@@ -46,7 +46,7 @@ const STRING_PREFIX_LENGTH: usize = 4;
 const PUBLIC_KEY_LENGTH: usize = 32;
 const BOOL_LENGTH: usize = 1;
 
-impl EntityAccount {
+impl TaskAccount {
     pub const LEN: usize = DISCRIMINATOR_LENGTH 
                          + U64_LENGTH 
                          + (STRING_PREFIX_LENGTH + MAX_NAME_LENGTH)
@@ -56,35 +56,35 @@ impl EntityAccount {
 
 #[derive(Accounts)]
 #[instruction(id: u64, name: String)]
-pub struct CreateEntity<'info> {
+pub struct CreateTask<'info> {
     #[account(
         init, 
         payer = user, 
-        space = EntityAccount::LEN, 
-        seeds = [b"entity_seed".as_ref(), id.to_le_bytes().as_ref()],
+        space = TaskAccount::LEN, 
+        seeds = [b"task_seed".as_ref(), id.to_le_bytes().as_ref()],
         bump
     )]
-    pub entity_account: Account<'info, EntityAccount>,
+    pub task_account: Account<'info, TaskAccount>,
     #[account(mut)]
     pub user: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-pub struct UpdateEntityStatus<'info> {
+pub struct UpdateTaskStatus<'info> {
     #[account(mut, has_one = authority @ ErrorCode::UnauthorizedAction)]
-    pub entity_account: Account<'info, EntityAccount>,
+    pub task_account: Account<'info, TaskAccount>,
     pub authority: Signer<'info>,
 }
 
 #[derive(Accounts)]
-pub struct DeleteEntity<'info> {
+pub struct DeleteTask<'info> {
     #[account(
         mut, 
         close = authority_signer,
-        constraint = entity_account.authority == authority_signer.key() @ ErrorCode::UnauthorizedAction
+        constraint = task_account.authority == authority_signer.key() @ ErrorCode::UnauthorizedAction
     )]
-    pub entity_account: Account<'info, EntityAccount>,
+    pub task_account: Account<'info, TaskAccount>,
     #[account(mut)] 
     pub authority_signer: Signer<'info>,
 }
