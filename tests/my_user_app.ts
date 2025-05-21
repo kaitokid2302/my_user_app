@@ -91,8 +91,8 @@ describe("entity_manager", () => {
   it("Fails to update entity status with wrong authority", async () => {
     const anotherUser = anchor.web3.Keypair.generate();
     // Airdrop SOL to the new user if needed for them to be a signer (though here they are not paying)
-    // await provider.connection.requestAirdrop(anotherUser.publicKey, anchor.web3.LAMPORTS_PER_SOL);
-    // await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for airdrop
+    await provider.connection.requestAirdrop(anotherUser.publicKey, anchor.web3.LAMPORTS_PER_SOL / 10);
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for airdrop
 
     try {
       await program.methods
@@ -197,6 +197,8 @@ describe("entity_manager", () => {
 
     const anotherUser = anchor.web3.Keypair.generate();
     // Airdrop if this user needs to pay for anything (not in this specific call for delete)
+    await provider.connection.requestAirdrop(anotherUser.publicKey, anchor.web3.LAMPORTS_PER_SOL / 10);
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for airdrop
 
     try {
       await program.methods
